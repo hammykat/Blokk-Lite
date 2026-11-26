@@ -1,8 +1,5 @@
 #include "Engine.hpp"
 
-#define MINIAUDIO_IMPLEMENTATION
-#include "miniaudio.h"
-
 #include <iostream>
 #include <format>
 
@@ -20,6 +17,9 @@ Engine::~Engine()
 {
     // Clean up all loaded sound assets 
     ClearSounds();
+
+    // Unload all animation textures (must happen before the window closes)
+    ClearAnimations();
 
     // Uninitialize the engine itself
     ma_engine_uninit(&m_AudioEngine);
