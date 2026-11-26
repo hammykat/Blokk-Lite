@@ -47,6 +47,38 @@ void UpdateFrameNumbers(uint32_t* FrameNumbers, uint32_t* AnimationNumbers, uint
 }
 
 
+// Draws a bunch of objects with raylib.
+// Object i is drawn using the animation data AnimData[i] at the position (XPositions[i], YPositions[i]).
+// 'Animations' is the Engine's list of animations (see Engine::GetAnimations()).
+// Objects without an animation (or with a frame that doesn't exist) are skipped.
+// This doesn't call BeginDrawing() or EndDrawing(), the caller does that.
+void RenderObjects(
+    const std::vector<std::vector<Texture2D>>& Animations,
+    const AnimationData* AnimData,
+    const float* XPositions,
+    const float* YPositions,
+    uint32_t count
+) {
+    const uint32_t animationCount = static_cast<uint32_t>(Animations.size());
+
+    for (uint32_t i = 0; i < count; i++) {
+        const AnimationData& animation = AnimData[i];
+
+        // No animation set (UINT32_MAX) or an animation that doesn't exist
+        if (animation.AnimationNumber >= animationCount)
+            continue;
+
+        const std::vector<Texture2D>& frames = Animations[animation.AnimationNumber];
+
+        // No frame set (UINT32_MAX) or a frame that doesn't exist
+        if (animation.FrameNumber >= frames.size())
+            continue;
+
+        DrawTextureV(frames[animation.FrameNumber], Vector2{ XPositions[i], YPositions[i] }, WHITE);
+    }
+}
+
+
 void RunCollisions(
     std::vector<float>& XPositions,
     std::vector<float>& YPositions,
