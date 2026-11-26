@@ -1,24 +1,31 @@
+#pragma once
 
 #include "miniaudio.h"
+#include "raylib.h"
+
+#include <robin_map.h>
 
 #include <unordered_map>
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <functional>
 
 #include "Types.hpp"
 #include "coordinate_tree.hpp"
 
 using ObjectID = uint32_t;
 
-struct ObjectIndexesData 
+class GameObject;
+
+struct ObjectIndexesData
 {
     GameObject* ObjectInstance = nullptr;
     ObjectID collisionRect = UINT32_MAX;
-    ObjectID position{} = UINT32_MAX;
-    ObjectID velocity{} = UINT32_MAX;
-    ObjectID isVisible{} = UINT32_MAX;
-    ObjectID animationData{} = UINT32_MAX;
+    ObjectID position = UINT32_MAX;
+    ObjectID velocity = UINT32_MAX;
+    ObjectID isVisible = UINT32_MAX;
+    ObjectID animationData = UINT32_MAX;
 };
 
 struct AnimationData {
@@ -26,9 +33,7 @@ struct AnimationData {
     ObjectID FrameNumber = UINT32_MAX;
 };
 
-class GameObject;
-
-class Engine 
+class Engine
 {
 
 private:
@@ -44,6 +49,13 @@ private:
     std::vector<std::vector<ma_sound>> m_Sounds;
     std::unordered_map<uint32_t, uint32_t> m_SoundPoolSizes;
     std::unordered_map<uint32_t, uint32_t> m_CurrentInstanceIndex;
+
+    // Animations
+    // An animation is a list of frames (raylib textures). m_Animations[AnimationIndex][FrameIndex]
+    // m_AnimationNames turns the name of an animation into its AnimationIndex
+    tsl::robin_map<std::string, uint32_t> m_AnimationNames;
+    std::vector<std::vector<Texture2D>> m_Animations;
+    uint32_t m_AnimationCount = 0; // How many animations have been created
 
     // Object data
     std::vector<float> m_XVelocities;
@@ -65,4 +77,27 @@ public:
     void PlaySoundEffect(const std::string& name, float volume = 100.0f);
     void StopSound(const std::string& name);
     void ClearSounds();
+
+    // Animations
+    // Textures can only be loaded after raylib's InitWindow(), because they live on the GPU.
+
+    // Creates an animation called 'name' and loads every file in 'paths' as a frame, in order
+    void CreateAnimation(const std::vector<std::filesystem::path>& paths, const std::string& name);
+
+    // Creates an animation called 'name' with no frames. Use AddAnimationFrame() to fill it
+    void CreateEmptyAnimation(const std::string& name);
+
+    // Loads the file at 'path' and adds it as the last frame of the animation called 'name'
+    void AddAnimationFrame(const std::string& name, const std::filesystem::path& path);
+
+    // Unloads every animation. Objects that were using an animation must be given a new one afterwards
+    void ClearAnimations();
+
+    // Returns the index of the animation called 'name', or UINT32_MAX if there is none
+    [[nodiscard]] uint32_t GetAnimationIndex(const std::string& name) const;
+
+    // Returns how many frames an animation has, or 0 if there is no animation at that index
+    [[nodiscard]] uint32_t GetAnimationFrameCount(uint32_t animationIndex) const;
+
+    [[nodiscard]] const std::vector<std::vector<Texture2D>>& GetAnimations() const { return m_Animations; }
 };
