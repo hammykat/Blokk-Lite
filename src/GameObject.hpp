@@ -12,7 +12,8 @@ class GameObject;
 
 using FloatHandle = Handle<std::vector<float>>;
 using uIntHandle = Handle<std::vector<uint32_t>>;
-using AnimationDataHandle = Handle<std::vector<AnimationData>>;
+using RectHandle = Handle<std::vector<Rect>>;
+using IndexesDataHandle = Handle<std::vector<ObjectIndexesData>>;
 
 using UpdateFunctionPtr = void(GameObject::*)(float delta);
 using CollisionFunctionPtr = void(GameObject::*)(GameObject& Object);
@@ -21,6 +22,7 @@ class GameObject
 {
 
 private:
+	inline static Engine* EngineInstance = nullptr; // The Engine that owns this object (set by the Engine when it creates the object)
 
 	FloatHandle XVelocity;
 	FloatHandle YVelocity;
@@ -28,18 +30,23 @@ private:
 	FloatHandle XPosition;
 	FloatHandle YPosition;
 
-	AnimationDataHandle AnimationData;
-	std::string CurrentAnimation;
+	uIntHandle FrameNumber;
+	uIntHandle AnimationNumber;
+
+	RectHandle CollisionRect;
+	IndexesDataHandle EngineIndexesData;
 
 	UpdateFunctionPtr UpdateFunction;
 	CollisionFunctionPtr CollisionFunction;
 	bool UpdateFunctionSet;
 	bool CollisionFunctionSet;
 
-	Engine* EngineInstance = nullptr; // The Engine that owns this object (set by the Engine when it creates the object)
-
 public:
 	friend class Engine;
+
+	GameObject(ObjectCreationData& creationData) {
+		EngineInstance->AddObject(creationData, this);
+	}
 
 	void SetVelocity(vec2 vel) {
 		XVelocity.get() = vel.x;
@@ -59,6 +66,19 @@ public:
 		return vec2(XPosition.get(), YPosition.get());
 	}
 
+	// Collisions -------------------------------------
+
+	void SetCollisionRect(Rect& rect) {
+		if (CollisionRect.IsValid()) {
+			// Set the var
+			CollisionRect.get() = rect;	
+		}
+		else {
+			// Tell engine to register
+			EngineInstance->RegisterCollisionRect(rect, this);
+		}
+	}
+
 	// Animations -------------------------------------------------------------
 
 	// Sets the frame of the current animation. Does nothing if the frame doesn't exist in the current animation
@@ -68,10 +88,10 @@ public:
 			return;
 
 		// A frame number must be less than the number of frames in the animation
-		if (num >= EngineInstance->GetAnimationFrameCount(AnimationData.get().AnimationNumber))
+		if (num >= EngineInstance->GetAnimationFrameCount(AnimationNumber.get()))
 			return;
 
-		AnimationData.get().FrameNumber = num;
+		FrameNumber.get() = num;
 	}
 
 	// Sets the animation by the name it was given in the Engine (see Engine::CreateAnimation)
@@ -86,12 +106,25 @@ public:
 			throw std::runtime_error(err_str);
 		}
 
-		AnimationData.get().AnimationNumber = animationIndex;
-		CurrentAnimation = name;
+		AnimationNumber.get() = animationIndex;
 
 		// If the current frame doesn't exist in the new animation, go back to the first one
-		if (AnimationData.get().FrameNumber >= EngineInstance->GetAnimationFrameCount(animationIndex))
-			AnimationData.get().FrameNumber = 0;
+		if (FrameNumber.get() >= EngineInstance->GetAnimationFrameCount(animationIndex))
+			FrameNumber.get() = 0;
+	}
+
+	// Custom functions -------------------------------------------
+
+	// Sets the custom update function for this game object
+	void SetUpdateFunction(UpdateFunctionPtr func) {
+		UpdateFunction = func;
+		UpdateFunctionSet = (func != nullptr);
+	}
+
+	// Sets the custom collision callback function for this game object
+	void SetCollisionFunction(CollisionFunctionPtr func) {
+		CollisionFunction = func;
+		CollisionFunctionSet = (func != nullptr);
 	}
 
 	void RunCollisionFunction(GameObject* obj) {

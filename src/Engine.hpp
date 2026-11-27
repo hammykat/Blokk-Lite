@@ -37,6 +37,7 @@ class Engine
 {
 
 private:
+    friend class GameObject;
 
     // Collisions
     const uint32_t CollisionChunkSize = 1024;
@@ -66,16 +67,17 @@ private:
     std::vector<float> m_XPositions;
     std::vector<float> m_YPositions;
 
-    std::vector<bool> m_IsVisible;
-    std::vector<AnimationData> m_AnimationData;
-
     // Index data
     std::vector<ObjectIndexesData> m_ObjectLocationData;
     uint32_t m_ObjectCount;
+    double m_DeltaTime;
 
     void RunCollisions();
     void RenderFrame();
-    void UpdatePositions();
+
+    void AddObject(ObjectCreationData& creationData, GameObject* object);
+    void RegisterCollisionRect(Rect& rect, GameObject* object);
+    void RemoveObject();
 
 public:
     Engine();
@@ -83,6 +85,8 @@ public:
 
     void ExecuteFrame() 
     {
+        m_DeltaTime = GetFrameTime();
+
         // Run collisions, update positions
         RunCollisions();
 

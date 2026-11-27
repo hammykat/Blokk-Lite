@@ -1,4 +1,5 @@
 #include "Engine.hpp"
+#include "GameObject.hpp"
 
 #include <iostream>
 #include <format>
@@ -10,6 +11,9 @@ Engine::Engine()
     if (ma_engine_init(nullptr, &m_AudioEngine) != MA_SUCCESS) {
         throw std::runtime_error("Blokk Error: Failed to initialize audio engine!");
     }
+
+    // Set this engine instance as the active one for handles/objects
+    GameObject::EngineInstance = this;
 }
 
 // Destructor (Uninitializes the AudioEngine, cleans up all the sounds)

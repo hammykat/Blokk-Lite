@@ -11,7 +11,7 @@
 struct UpdatePositionsKernel 
 {
 	template <typename Arch>
-	void operator()(Arch arch, float* XVelocities, float* YVelocities, float* XPositions, float* YPositions, uint32_t count) 
+    void operator()(Arch arch, float* XVelocities, float* YVelocities, float* XPositions, float* YPositions, float delta, uint32_t count)
     {
         using Batch = xsimd::batch<float, Arch>;
         constexpr uint32_t inc = Batch::size;
@@ -24,8 +24,10 @@ struct UpdatePositionsKernel
             Batch XVel = Batch::load_unaligned(XVelocities + i);
             Batch YVel = Batch::load_unaligned(YVelocities + i);
 
-            XPos += XVel;
-            YPos += YVel;
+            Batch DeltaTime = Batch(delta);
+
+            XPos += XVel * DeltaTime;
+            YPos += YVel * DeltaTime;
 
             XPos.store_unaligned(XPositions + i);
             YPos.store_unaligned(YPositions + i);
@@ -33,8 +35,8 @@ struct UpdatePositionsKernel
 
         // Scalar remainder
         for (; i < count; ++i) {
-            XPositions[i] += XVelocities[i];
-            YPositions[i] += YVelocities[i];
+            XPositions[i] += XVelocities[i] * delta;
+            YPositions[i] += YVelocities[i] * delta;
         }
 	}
 };
@@ -275,6 +277,7 @@ void Engine::RunCollisions()
         m_YVelocities.data(),
         m_XPositions.data(),
         m_YPositions.data(),
+        m_DeltaTime,
         m_XVelocities.size()
     );
 
