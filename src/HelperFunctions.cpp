@@ -12,3 +12,5 @@
 	float oy = (pos1.y - pos2.y);
 	return (ox * ox) - (oy * oy);
 }
+
+

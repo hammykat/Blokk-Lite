@@ -41,7 +41,7 @@ private:
     // Collisions
     const uint32_t CollisionChunkSize = 1024;
     std::vector<Rect> m_CollisionRectangles;
-    CoordinateTree2D<std::reference_wrapper<ObjectIndexesData>> Chunks;
+    CoordinateTree2D<std::reference_wrapper<ObjectIndexesData>> m_ChunkData;
 
     // Sound
     ma_engine m_AudioEngine;
@@ -54,7 +54,10 @@ private:
     // An animation is a list of frames (raylib textures). m_Animations[AnimationIndex][FrameIndex]
     // m_AnimationNames turns the name of an animation into its AnimationIndex
     tsl::robin_map<std::string, uint32_t> m_AnimationNames;
-    std::vector<std::vector<Texture2D>> m_Animations;
+    std::vector<std::vector<Texture2D>> m_Animations; // Frames for each animation
+    std::vector<uint32_t> m_AnimationSizes; // The number of frames in each animation
+    std::vector<uint32_t> m_AnimationNumbers;
+    std::vector<uint32_t> m_FrameNumbers;
     uint32_t m_AnimationCount = 0; // How many animations have been created
 
     // Object data
@@ -68,17 +71,36 @@ private:
 
     // Index data
     std::vector<ObjectIndexesData> m_ObjectLocationData;
+    uint32_t m_ObjectCount;
+
+    void RunCollisions();
+    void RenderFrame();
+    void UpdatePositions();
 
 public:
     Engine();
     ~Engine();
+
+    void ExecuteFrame() 
+    {
+        // Run collisions, update positions
+        RunCollisions();
+
+        // Render all objects
+        BeginDrawing();
+            RenderFrame();
+        EndDrawing();
+    }
+
+    // Sounds ----------------------------------------
 
     void LoadSound(const std::filesystem::path& path, const std::string& name, uint32_t maxConcurrentInstances = 1);
     void PlaySoundEffect(const std::string& name, float volume = 100.0f);
     void StopSound(const std::string& name);
     void ClearSounds();
 
-    // Animations
+    // Animations --------------------------------------
+
     // Textures can only be loaded after raylib's InitWindow(), because they live on the GPU.
 
     // Creates an animation called 'name' and loads every file in 'paths' as a frame, in order

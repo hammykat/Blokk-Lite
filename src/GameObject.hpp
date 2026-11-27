@@ -12,6 +12,7 @@ class GameObject;
 
 using FloatHandle = Handle<std::vector<float>>;
 using uIntHandle = Handle<std::vector<uint32_t>>;
+using AnimationDataHandle = Handle<std::vector<AnimationData>>;
 
 using UpdateFunctionPtr = void(GameObject::*)(float delta);
 using CollisionFunctionPtr = void(GameObject::*)(GameObject& Object);
@@ -27,9 +28,7 @@ private:
 	FloatHandle XPosition;
 	FloatHandle YPosition;
 
-	uIntHandle FrameNumber;
-	uIntHandle AnimationNumber;
-
+	AnimationDataHandle AnimationData;
 	std::string CurrentAnimation;
 
 	UpdateFunctionPtr UpdateFunction;
@@ -38,7 +37,6 @@ private:
 	bool CollisionFunctionSet;
 
 	Engine* EngineInstance = nullptr; // The Engine that owns this object (set by the Engine when it creates the object)
-
 
 public:
 	friend class Engine;
@@ -61,6 +59,8 @@ public:
 		return vec2(XPosition.get(), YPosition.get());
 	}
 
+	// Animations -------------------------------------------------------------
+
 	// Sets the frame of the current animation. Does nothing if the frame doesn't exist in the current animation
 	// (or if the object has no animation yet)
 	void SetFrameNumber(uint32_t num) {
@@ -68,10 +68,10 @@ public:
 			return;
 
 		// A frame number must be less than the number of frames in the animation
-		if (num >= EngineInstance->GetAnimationFrameCount(AnimationNumber.get()))
+		if (num >= EngineInstance->GetAnimationFrameCount(AnimationData.get().AnimationNumber))
 			return;
 
-		FrameNumber.get() = num;
+		AnimationData.get().FrameNumber = num;
 	}
 
 	// Sets the animation by the name it was given in the Engine (see Engine::CreateAnimation)
@@ -86,12 +86,12 @@ public:
 			throw std::runtime_error(err_str);
 		}
 
-		AnimationNumber.get() = animationIndex;
+		AnimationData.get().AnimationNumber = animationIndex;
 		CurrentAnimation = name;
 
 		// If the current frame doesn't exist in the new animation, go back to the first one
-		if (FrameNumber.get() >= EngineInstance->GetAnimationFrameCount(animationIndex))
-			FrameNumber.get() = 0;
+		if (AnimationData.get().FrameNumber >= EngineInstance->GetAnimationFrameCount(animationIndex))
+			AnimationData.get().FrameNumber = 0;
 	}
 
 	void RunCollisionFunction(GameObject* obj) {

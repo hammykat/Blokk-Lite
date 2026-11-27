@@ -54,7 +54,8 @@ void UpdateFrameNumbers(uint32_t* FrameNumbers, uint32_t* AnimationNumbers, uint
 // This doesn't call BeginDrawing() or EndDrawing(), the caller does that.
 void RenderObjects(
     const std::vector<std::vector<Texture2D>>& Animations,
-    const AnimationData* AnimData,
+    const uint32_t* AnimationNumbers,
+    const uint32_t* FrameNumbers,
     const float* XPositions,
     const float* YPositions,
     uint32_t count
@@ -62,7 +63,7 @@ void RenderObjects(
     const uint32_t animationCount = static_cast<uint32_t>(Animations.size());
 
     for (uint32_t i = 0; i < count; i++) {
-        const AnimationData& animation = AnimData[i];
+        const AnimationData& animation = {AnimationNumbers[i], FrameNumbers[i]};
 
         // No animation set (UINT32_MAX) or an animation that doesn't exist
         if (animation.AnimationNumber >= animationCount)
@@ -79,13 +80,13 @@ void RenderObjects(
 }
 
 
-void RunCollisions(
+void RunCollisionsForObjects(
     std::vector<float>& XPositions,
     std::vector<float>& YPositions,
     std::vector<float>& XVelocities,
     std::vector<float>& YVelocities,
     std::vector<Rect>& CollisionRects,
-    std::vector<ObjectIndexesData>& IndexData
+    std::vector<std::reference_wrapper<ObjectIndexesData>>& IndexData
 ) {
     uint32_t count = IndexData.size();
     
@@ -166,33 +167,44 @@ void RunCollisions(
 }
 
 
+// Updates the chunks of objects in the world and arranges them for collision checks
+// Hardcoded to chunk sizes of 512, uses SIMD
 struct UpdateCollisionChunksKernel
 {
     template <typename Arch>
-    void operator()(Arch arch, float* XPositions, float* YPositions, CoordinateTree2D<std::reference_wrapper<ObjectIndexesData>>& chunkContainer, uint32_t count)
-    {
+    void operator()(Arch arch,
+        float* XPositions, float* YPositions,
+        CoordinateTree2D<std::reference_wrapper<ObjectIndexesData>>& chunkContainer,
+        std::vector<ObjectIndexesData>& IndexesData,
+        uint32_t count
+    ) {
         std::vector<float> chunkXResults(count);
         std::vector<float> chunkYResults(count);
 
-        using Batch = xsimd::batch<float, Arch>;
-        constexpr uint32_t inc = Batch::size;
+        using FloatBatch = xsimd::batch<float, Arch>;
+        using IntBatch = xsimd::batch<int, Arch>;
+
+        constexpr uint32_t inc = FloatBatch::size;
         uint32_t i = 0;
 
         for (; i + inc <= count; i += inc) {
-            Batch XPos = Batch::load_unaligned(XPositions + i);
-            Batch YPos = Batch::load_unaligned(YPositions + i);
-            
-            Batch ChunkX = XPos >> 10;
-            Batch ChunkY = YPos >> 10;
+            FloatBatch XPos = FloatBatch::load_unaligned(XPositions + i);
+            FloatBatch YPos = FloatBatch::load_unaligned(YPositions + i);
 
+            IntBatch IntXPos = xsimd::to_int(XPos);
+            IntBatch IntYPos = xsimd::to_int(YPos);
+            
+            IntBatch ChunkX = IntXPos >> 9;
+            IntBatch ChunkY = IntYPos >> 9;
+            
             ChunkX.store_unaligned(chunkXResults.data() + i);
             ChunkY.store_unaligned(chunkYResults.data() + i);
         }
 
         // Scalar remainder
         for (; i < count; ++i) {
-            chunkXResults[i] = XPositions[i] >> 10;
-            chunkYResults[i] = YPositions[i] >> 10;
+            chunkXResults[i] = XPositions[i] >> 9;
+            chunkYResults[i] = YPositions[i] >> 9;
         }
 
         for (uint32_t i = 0; i < count; i++) {
@@ -201,10 +213,116 @@ struct UpdateCollisionChunksKernel
             if (!chunkContainer.Contains(coord))
                 chunkContainer.CreateNewGroup(coord);
 
-            uint32_t idx = chunkContainer.GetIndexOfGroup(coords);
-            chunkContainer.AddItem(idx)
+            chunkContainer.AddItem(coord, IndexesData[i]);
         }
     }
 };
+
+namespace {
+    auto UpdatePositionsDispatcher = xsimd::dispatch(UpdatePositionsKernel{});
+    auto UpdateCollisionChunksDispatcher = xsimd::dispatch(UpdateCollisionChunksKernel{});
+}
+
+void Engine::RenderFrame() 
+{
+    // Increment objects frame numbers
+    UpdateFrameNumbers(
+        m_FrameNumbers.data(),
+        m_AnimationNumbers.data(),
+        m_AnimationSizes.data(),
+        m_FrameNumbers.size()
+    );
+    
+    // Render all the objects
+    RenderObjects(
+        m_Animations,
+        m_AnimationNumbers.data(),
+        m_FrameNumbers.data(),
+        m_XPositions.data(),
+        m_YPositions.data(),
+        m_AnimationNumbers.size()
+    );
+}
+
+
+// Chunks it checks collisions with
+// [ ][ ][x]
+// [ ][x][x]
+// [x][x][x]
+const std::vector<vec2> ChunksToRunCollisionsMap = {
+    {0, 0}, // The chunk
+    {-1, -1}, // Bottom left
+    {0, -1}, // Bottom middle
+    {1, -1}, // Bottom right
+    {1, 0}, // Middle right
+    {1, 1} // Top left
+};
+
+inline void GetChunksToRunCollisions(const vec2& tcoord, std::vector<vec2>& outCoords) {
+    outCoords.clear();
+    outCoords.reserve(ChunksToRunCollisionsMap.size());
+
+    for (const vec2& offset : ChunksToRunCollisionsMap) {
+        outCoords.push_back({ tcoord.x + offset.x, tcoord.y + offset.y });
+    }
+}
+
+void Engine::RunCollisions() 
+{
+    // Update positions based on velocities
+    UpdatePositionsDispatcher(
+        m_XVelocities.data(),
+        m_YVelocities.data(),
+        m_XPositions.data(),
+        m_YPositions.data(),
+        m_XVelocities.size()
+    );
+
+    // Update object chunks
+    m_ChunkData.Clear(); 
+    UpdateCollisionChunksDispatcher(
+        m_XPositions.data(),
+        m_YPositions.data(),
+        m_ChunkData,
+        m_ObjectLocationData, 
+        m_XVelocities.size()
+    );
+    
+    std::vector<vec2> currentCoordsToCheck;
+    std::vector<std::reference_wrapper<ObjectIndexesData>> currentData;
+
+    auto& GroupMap = m_ChunkData.GetGroupMap();
+    for (const auto& [chunkCoord, idx] : GroupMap) {
+        GetChunksToRunCollisions(chunkCoord, currentCoordsToCheck);
+
+        currentData.clear();
+        currentData = m_ChunkData.GetGroup(idx);
+        uint32_t firstSize = currentData.size();
+
+        RunCollisionsForObjects(
+            m_XPositions, m_YPositions,
+            m_XVelocities, m_YVelocities,
+            m_CollisionRectangles,
+            currentData
+        );
+
+        for (const vec2 coord : currentCoordsToCheck) {
+            if (coord == chunkCoord) continue;
+            if (!m_ChunkData.Contains(coord)) continue;
+
+            auto& data = m_ChunkData.GetGroup(coord);
+            currentData.resize(firstSize);
+            currentData.reserve(firstSize + data.size());
+            currentData.insert(currentData.end(), data.begin(), data.end());
+
+            RunCollisionsForObjects(
+                m_XPositions, m_YPositions,
+                m_XVelocities, m_YVelocities,
+                m_CollisionRectangles,
+                currentData
+            );
+        }
+    }
+}
 
 

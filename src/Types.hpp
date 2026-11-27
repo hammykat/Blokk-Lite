@@ -19,6 +19,14 @@ struct Handle {
 
 struct vec2 {
 	float x, y;
+
+	bool operator==(const vec2& t) const {
+		return x == t.x && y == t.y;
+	}
+
+	void operator+=(const vec2 t) {
+		x += t.x; y += t.y;
+	}
 };
 
 

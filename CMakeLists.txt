@@ -10,20 +10,22 @@ add_subdirectory(vendor/raylib)
 add_subdirectory(vendor/xsimd)
 
 # Gather all source files in src/
-file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.cpp")
+file(GLOB_RECURSE SOURCES "src/*.cpp")
 
 # Create executable
-add_executable(BlokkLite ${SOURCES})
+add_library(BlokkLite STATIC ${SOURCES})
 
 # Include header paths
-target_include_directories(BlokkLite PRIVATE
+target_include_directories(BlokkLite PUBLIC
+    include
     src
     vendor/miniaudio
     vendor/tsl
 )
 
 # Link libraries
-target_link_libraries(BlokkLite PRIVATE 
+target_link_libraries(BlokkLite PUBLIC 
     raylib
     xsimd
 )
+

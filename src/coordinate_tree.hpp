@@ -39,11 +39,21 @@ class CoordinateTree2D
 private:
     std::vector<std::vector<Type>> Data; // Contains a vector of references to vectors of Type, where each reference corresponds to a group of items
     tsl::robin_map<vec2, uint32_t, Vector2Hash> GroupNames; // Contains a mapping from group coordinates to the index of the corresponding vector in 'data'
-    std::vector<uint32_t> Sizes; // Contains the number of items in each group
     std::vector<std::vector<uint32_t>> FreeIdxs; // Contains a vector of vectors of free indices for each group, where each inner vector corresponds to a group and contains the indices of items that have been removed and can be reused
     std::vector<uint32_t> FreeIdxSize; // Contains the number of free indices for each group, where each element corresponds to a group and contains the number of items that have been removed and can be reused
 
 public: // Allow full access to data
+
+    const auto& GetGroupMap() {
+        return GroupNames;
+    }
+
+    void Clear() {
+        Data.clear();
+        GroupNames.clear();
+        FreeIdxs.clear();
+        FreeIdxSize.clear();
+    }
 
     [[nodiscard]] inline
         Type& GetItem(const vec2& GroupCoords, uint32_t Idx) {
@@ -56,11 +66,20 @@ public: // Allow full access to data
         return Dummy;
     }
 
-    // Using [] with index will return a ref to all the items
     [[nodiscard]] inline
         std::vector<Type>& GetGroup(uint32_t Idx) {
         if (Idx < Data.size()) {
             return Data[Idx];
+        }
+        // Safe fallback vector reference
+        static std::vector<Type> DummyVec;
+        return DummyVec;
+    }
+
+    [[nodiscard]] inline
+    std::vector<Type>& GetGroup(const vec2 coords) {
+        if (auto It = GroupNames.find(coords); It != GroupNames.end()) {
+            return Data[It->second];
         }
         // Safe fallback vector reference
         static std::vector<Type> DummyVec;
