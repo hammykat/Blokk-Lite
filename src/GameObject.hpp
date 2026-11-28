@@ -36,10 +36,8 @@ private:
 	RectHandle CollisionRect;
 	IndexesDataHandle EngineIndexesData;
 
-	UpdateFunctionPtr UpdateFunction;
-	CollisionFunctionPtr CollisionFunction;
-	bool UpdateFunctionSet;
-	bool CollisionFunctionSet;
+	UpdateFunctionPtr UpdateFunction = nullptr;
+	CollisionFunctionPtr CollisionFunction = nullptr;
 
 public:
 	friend class Engine;
@@ -118,23 +116,21 @@ public:
 	// Sets the custom update function for this game object
 	void SetUpdateFunction(UpdateFunctionPtr func) {
 		UpdateFunction = func;
-		UpdateFunctionSet = (func != nullptr);
 	}
 
 	// Sets the custom collision callback function for this game object
 	void SetCollisionFunction(CollisionFunctionPtr func) {
 		CollisionFunction = func;
-		CollisionFunctionSet = (func != nullptr);
 	}
 
 	void RunCollisionFunction(GameObject* obj) {
-		if (CollisionFunctionSet) {
+		if (CollisionFunction != nullptr) {
 			(this->*CollisionFunction)(*obj);
 		}
 	}
 
 	void RunUpdateFunction(float delta) {
-		if (UpdateFunctionSet) {
+		if (UpdateFunction != nullptr) {
 			(this->*UpdateFunction)(delta);
 		}
 	}

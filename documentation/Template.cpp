@@ -50,24 +50,15 @@ int main() {
 
     Player player(playerData);
 
-    Rect playerHitbox{ 400, 225, 32, 32 };
+    Rect playerHitbox{ 0, 0, 32, 32 };
     player.SetCollisionRect(playerHitbox);
 
     // 5. Main Game Loop
     while (!WindowShouldClose()) {
-        float delta = GetFrameTime();
+        // --- UPDATE --- 
+        // Any custom logic goes here
 
-        // --- UPDATE ---
-        // MyEngine.Update(delta); // Run engine physics, collisions, and object updates
-
-        // --- DRAW ---
-        BeginDrawing();
-        ClearBackground(RAYWHITE);
-
-        // MyEngine.Render(); // Render active animations/sprites
-        DrawText("BlokkLite Engine Initialized!", 20, 20, 20, DARKGRAY);
-
-        EndDrawing();
+        MyEngine.ExecuteFrame(); // Run engine physics, collisions, and object updates along with rendering
     }
 
     // 6. Cleanup

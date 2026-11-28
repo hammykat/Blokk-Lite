@@ -1,7 +1,7 @@
 #pragma once
 
-
 #include <cstdint>
+#include <string>
 
 template <typename Container>
 struct Handle {
@@ -25,7 +25,7 @@ struct Handle {
 	}
 
 	[[nodiscard]] inline bool IsValid() {
-		return data == nullptr || idx == UINT32_MAX;
+		return !(data == nullptr || idx == UINT32_MAX);
 	}
 
 	[[nodiscard]] inline auto& get() const {
@@ -55,7 +55,7 @@ struct Rect {
 struct ObjectCreationData {
 	const vec2 position = { 0, 0 }, velocity = { 0, 0 };
 	const uint32_t frameNumber = UINT32_MAX;
-	const std::string& animationName{ };
+	const std::string animationName{ };
 };
 
 

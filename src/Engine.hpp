@@ -10,6 +10,7 @@
 #include <vector>
 #include <filesystem>
 #include <functional>
+#include <memory>
 
 #include "Types.hpp"
 #include "coordinate_tree.hpp"
@@ -24,7 +25,6 @@ struct ObjectIndexesData
     ObjectID collisionRect = UINT32_MAX;
     ObjectID position = UINT32_MAX;
     ObjectID velocity = UINT32_MAX;
-    ObjectID isVisible = UINT32_MAX;
     ObjectID animationData = UINT32_MAX;
 };
 
@@ -42,7 +42,7 @@ private:
     // Collisions
     const uint32_t CollisionChunkSize = 1024;
     std::vector<Rect> m_CollisionRectangles;
-    CoordinateTree2D<std::reference_wrapper<ObjectIndexesData>> m_ChunkData;
+    CoordinateTree2D<std::unique_ptr<ObjectIndexesData>> m_ChunkData;
 
     // Sound
     ma_engine m_AudioEngine;
@@ -69,8 +69,8 @@ private:
 
     // Index data
     std::vector<ObjectIndexesData> m_ObjectLocationData;
-    uint32_t m_ObjectCount;
-    double m_DeltaTime;
+    uint32_t m_ObjectCount = 0;
+    double m_DeltaTime = 0.0f;
 
     void RunCollisions();
     void RenderFrame();

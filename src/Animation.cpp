@@ -58,6 +58,7 @@ void Engine::CreateAnimation(const std::vector<std::filesystem::path>& paths, co
     // Add it all at once
     m_AnimationNames[name] = m_AnimationCount;
     m_Animations.push_back(std::move(frames));
+    m_AnimationSizes.push_back(frames.size());
     m_AnimationCount++;
 }
 
@@ -70,6 +71,7 @@ void Engine::CreateEmptyAnimation(const std::string& name)
 
     m_AnimationNames[name] = m_AnimationCount;
     m_Animations.emplace_back();
+    m_AnimationSizes.push_back(0);
     m_AnimationCount++;
 }
 
@@ -86,6 +88,7 @@ void Engine::AddAnimationFrame(const std::string& name, const std::filesystem::p
     RequireWindow("Engine::AddAnimationFrame");
 
     m_Animations[it->second].push_back(LoadFrame(path));
+    m_AnimationSizes[it->second]++;
 }
 
 
@@ -103,6 +106,7 @@ void Engine::ClearAnimations()
 
     m_Animations.clear();
     m_AnimationNames.clear();
+    m_AnimationSizes.clear();
     m_AnimationCount = 0;
 }
 
@@ -122,5 +126,5 @@ uint32_t Engine::GetAnimationFrameCount(uint32_t animationIndex) const
     if (animationIndex >= m_AnimationCount)
         return 0;
 
-    return static_cast<uint32_t>(m_Animations[animationIndex].size());
+    return static_cast<uint32_t>(m_AnimationSizes[animationIndex]);
 }

@@ -88,13 +88,13 @@ void RunCollisionsForObjects(
     std::vector<float>& XVelocities,
     std::vector<float>& YVelocities,
     std::vector<Rect>& CollisionRects,
-    std::vector<std::reference_wrapper<ObjectIndexesData>>& IndexData
+    std::vector<std::unique_ptr<ObjectIndexesData>>& IndexData
 ) {
     uint32_t count = IndexData.size();
     
     for (uint32_t i = 0; i < count; i++) 
     {
-        ObjectIndexesData& data = IndexData[i];
+        ObjectIndexesData& data = *IndexData[i];
 
         // No collision set
         if (data.collisionRect == UINT32_MAX) 
@@ -108,7 +108,7 @@ void RunCollisionsForObjects(
         GameObject* obj = data.ObjectInstance;
 
         for (uint32_t u = i + 1; u < count; u++) {
-            ObjectIndexesData& otherData = IndexData[u];
+            ObjectIndexesData& otherData = *IndexData[u];
 
             // No collision set
             if (otherData.collisionRect == UINT32_MAX)
@@ -176,7 +176,7 @@ struct UpdateCollisionChunksKernel
     template <typename Arch>
     void operator()(Arch arch,
         float* XPositions, float* YPositions,
-        CoordinateTree2D<std::reference_wrapper<ObjectIndexesData>>& chunkContainer,
+        CoordinateTree2D<ObjectIndexesData*>& chunkContainer,
         std::vector<ObjectIndexesData>& IndexesData,
         uint32_t count
     ) {
@@ -205,8 +205,8 @@ struct UpdateCollisionChunksKernel
 
         // Scalar remainder
         for (; i < count; ++i) {
-            chunkXResults[i] = XPositions[i] >> 9;
-            chunkYResults[i] = YPositions[i] >> 9;
+            chunkXResults[i] = static_cast<int32_t>(XPositions[i]) >> 9;
+            chunkYResults[i] = static_cast<uint32_t>(YPositions[i]) >> 9;
         }
 
         for (uint32_t i = 0; i < count; i++) {
@@ -248,16 +248,14 @@ void Engine::RenderFrame()
 
 
 // Chunks it checks collisions with
-// [ ][ ][x]
 // [ ][x][x]
-// [x][x][x]
+// [ ][x][x]
+// [ ][ ][x]
 const std::vector<vec2> ChunksToRunCollisionsMap = {
-    {0, 0}, // The chunk
-    {-1, -1}, // Bottom left
-    {0, -1}, // Bottom middle
-    {1, -1}, // Bottom right
-    {1, 0}, // Middle right
-    {1, 1} // Top left
+    {1, 0},
+    {-1, 1},
+    {0, 1},
+    {1, 1}
 };
 
 inline void GetChunksToRunCollisions(const vec2& tcoord, std::vector<vec2>& outCoords) {
@@ -292,7 +290,7 @@ void Engine::RunCollisions()
     );
     
     std::vector<vec2> currentCoordsToCheck;
-    std::vector<std::reference_wrapper<ObjectIndexesData>> currentData;
+    std::vector<std::unique_ptr<ObjectIndexesData>> currentData;
 
     auto& GroupMap = m_ChunkData.GetGroupMap();
     for (const auto& [chunkCoord, idx] : GroupMap) {
@@ -310,7 +308,6 @@ void Engine::RunCollisions()
         );
 
         for (const vec2 coord : currentCoordsToCheck) {
-            if (coord == chunkCoord) continue;
             if (!m_ChunkData.Contains(coord)) continue;
 
             auto& data = m_ChunkData.GetGroup(coord);

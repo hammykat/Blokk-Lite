@@ -17,12 +17,15 @@ void Engine::AddObject(ObjectCreationData& creationData, GameObject* object)
 	m_AnimationNumbers.push_back(GetAnimationIndex(creationData.animationName));
 	m_FrameNumbers.push_back(creationData.frameNumber);
 
+	// Trackers
+	uint32_t idx = m_XPositions.size() - 1;
+	m_ObjectLocationData.push_back({object, UINT32_MAX, idx, idx, idx, idx});
+
 	// Counter
 	m_ObjectCount++;
 
 	// Set object vars -----------------------------------
 	object->EngineInstance = this;
-	uint32_t idx = m_XPositions.size() - 1;
 	
 	object->XPosition.Set(m_XPositions, idx);
 	object->YPosition.Set(m_YPositions, idx);

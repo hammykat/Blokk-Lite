@@ -35,8 +35,10 @@ void Engine::LoadSound(const std::filesystem::path& path, const std::string& nam
     if (m_SoundNames.contains(name) || maxConcurrentInstances == 0)
         return; // Already loaded or doesn't have to load
 
-    uint32_t idx = static_cast<uint32_t>(m_SoundNames.size());
+    uint32_t idx = static_cast<uint32_t>(m_Sounds.size());
     m_SoundNames[name] = idx;
+
+    m_Sounds.emplace_back();
     std::vector<ma_sound>& soundInstances = m_Sounds[m_SoundNames[name]];
     soundInstances.resize(maxConcurrentInstances);
 
@@ -115,6 +117,7 @@ void Engine::ClearSounds()
 
     // Clear all arrays
     m_Sounds.clear();
+
     m_SoundNames.clear();
     m_SoundPoolSizes.clear();
     m_CurrentInstanceIndex.clear();
